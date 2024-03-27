@@ -1,107 +1,65 @@
-<script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { gsap } from 'gsap'
-
-const container = ref<HTMLDivElement>()
-const images = ref<HTMLImageElement[]>([])
-const mouse = ref({ x: 0, y: 0, moved: false })
-let rect = { top: 0, left: 0, width: 0, height: 0 }
-
-// Define an array of corresponding movements for the targets.
-const movements = [-10, -3, -7, -13, -1]
-const positions = [
-  { x: 400, y: 20 },
-  { x: 250, y: 200 },
-  { x: 30, y: -10 },
-  { x: 180, y: -150 },
-  { x: 180, y: -150 }
-]
-
-const onMousemove = (e: MouseEvent) => {
-  mouse.value.moved = true
-  mouse.value.x = e.clientX - rect.left
-  mouse.value.y = e.clientY - rect.top
-}
-
-const updateRect = () => {
-  if (container.value) {
-    const domRect = container.value.getBoundingClientRect()
-    rect = { top: domRect.top, left: domRect.left, width: domRect.width, height: domRect.height }
-  }
-}
-
-const parallaxIt = (el: HTMLImageElement, movement: number) => {
-  const rect = el.getBoundingClientRect()
-  gsap.to(el,
-    {
-      duration: 0.5,
-      x: (mouse.value.x - rect.width / 2) / rect.width * movement,
-      y: (mouse.value.y - rect.height / 2) / rect.height * movement
-    })
-}
-
-
-const frameHandler = () => {
-  if (mouse.value.moved) {
-    images.value.forEach((image, index) => {
-      parallaxIt(image, movements[index])
-    })
-  }
-  // Reset the moved property of the mouse value for the next event.
-  mouse.value.moved = false
-}
-
-
-const setImagesPosition = () => {
-  images.value.forEach((pointer, i) => {
-    const pos = positions[i % positions.length] // it will loop through positions if there are more images
-    pointer.style.transform = `translate(${pos.x}%, ${pos.y}%)`
-  })
-}
-
-
-onBeforeMount(() => {
-  // Create an array of targets (pointers). The targets are string identifiers like ".pointer1", ".pointer2", etc.
-  const targets = Array.from({ length: 5 }, (_, i) => `.pointer${i + 1}`)
-  images.value = targets.map(target => (document.querySelector(target) as HTMLImageElement))
-
-  setImagesPosition()
-})
-
-onMounted(() => {
-  gsap.ticker.add(frameHandler)
-  window.addEventListener('resize', updateRect)
-  window.addEventListener('scroll', updateRect)
-  updateRect()
-})
-
-onBeforeUnmount(() => {
-  gsap.ticker.remove(frameHandler)
-  window.removeEventListener('resize', updateRect)
-  window.removeEventListener('scroll', updateRect)
-})
-</script>
-
 <template>
-  <div ref="container" class="w-full" @mousemove="onMousemove">
-    <img src="/pizza.png" alt="pointer" class="pointer1 w-[163px]" />
-    <img src="/salad.png" alt="pointer" class="pointer2 w-[163px]" />
-    <img src="/cake.png" alt="pointer" class="pointer3 w-[255px]" />
-    <img src="/bread.png" alt="pointer" class="pointer4 w-[255px]" />
-    <img src="/burger.png" alt="pointer" class="pointer5 w-[438px]" />
+  <div ref="containerRef" class="py-12 px-30" @mousemove="onMouseMove">
+    <div class="grid grid-cols-3 min-w-[1200px]">
+      <h2 class="flex flex-col items-start text-[#FF5100] font-semibold text-[50px] min-w-[530px]">TAOMLA
+        <span class="capitalize text-[30px] text-[#170A04]">making your restaurant's digital presence stand out</span>
+      </h2>
+
+      <img src="/pizza.png" alt="pointer" class="item w-[163px] col-span-2 place-self-center">
+      <img src="/cake.png" alt="pointer" class="item w-[255px] self-end" />
+      <img src="/bread.png" alt="pointer" class="item w-[255px] self-start " />
+      <img src="/burger.png" alt="pointer" class="item w-[438px]" />
+      <img src="/salad.png" alt="pointer" class="item w-[163px] col-span-2 place-self-center" />
+    </div>
   </div>
 </template>
 
-<style>
+<script setup lang="ts">
+import { gsap } from 'gsap'
 
-body {
-  min-height: 100vh;
-  font-family: "Signika", sans-serif;
+const containerRef = ref<HTMLDivElement | null>(null)
+const items = ref<NodeListOf<Element>>()
+const rect = ref<any>(null)
+const arraySetters = ref<any[]>([])
+
+const randomMin = gsap.utils.random(-5, -30, 1, true)
+const randomPlus = gsap.utils.random(5, 30, 1, true)
+
+
+const setImagesRange = () => {
+  items.value?.forEach(item => {
+    const setter = {
+      x: gsap.quickSetter(item, 'x', 'px'),
+      y: gsap.quickSetter(item, 'y', 'px'),
+      minus: gsap.utils.mapRange(0, rect.value.width, randomMin(), randomPlus()),
+      plus: gsap.utils.mapRange(0, rect.value.width, randomMin(), randomPlus())
+    }
+    arraySetters.value.push(setter)
+  })
 }
 
-.pointer img {
-  width: 100px;
-  display: block;
-  margin: 0 auto;
+const onMouseMove = (e: MouseEvent) => {
+  arraySetters.value.forEach((item, index) => {
+    const obj = arraySetters.value[index]
+    obj.x(obj.minus(e.clientX - rect.value.left))
+    obj.y(obj.plus(e.clientY - rect.value.top))
+  })
+}
+
+onMounted(() => {
+  if (containerRef.value) {
+    rect.value = containerRef.value.getBoundingClientRect()
+  }
+  items.value = document.querySelectorAll('.item')
+  setImagesRange()
+})
+
+
+</script>
+
+<style lang="scss">
+body {
+  width: 100%;
+  height: 100vh;
 }
 </style>
