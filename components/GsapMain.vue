@@ -1,102 +1,107 @@
 <script setup lang="ts">
-import gsap from 'gsap'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { gsap } from 'gsap'
 
-const ctx = ref<any>(null)
+const container = ref<HTMLDivElement>()
+const images = ref<HTMLImageElement[]>([])
+const mouse = ref({ x: 0, y: 0, moved: false })
+let rect = { top: 0, left: 0, width: 0, height: 0 }
 
-onMounted(() => {
-  ctx.value = gsap.context(() => {
-    const safeToAnimate = window.matchMedia('(prefers-reduced-motion: no-preference)').matches
-    if (!safeToAnimate) return;
+// Define an array of corresponding movements for the targets.
+const movements = [-10, -3, -7, -13, -1]
+const positions = [
+  { x: 400, y: 20 },
+  { x: 250, y: 200 },
+  { x: 30, y: -10 },
+  { x: 180, y: -150 },
+  { x: 180, y: -150 }
+]
 
-    // Get the elements that we need
-    const pointers = document.querySelectorAll('.pointer')
+const onMousemove = (e: MouseEvent) => {
+  mouse.value.moved = true
+  mouse.value.x = e.clientX - rect.left
+  mouse.value.y = e.clientY - rect.top
+}
 
-    // let xPosition: number
-    // let yPosition: number
+const updateRect = () => {
+  if (container.value) {
+    const domRect = container.value.getBoundingClientRect()
+    rect = { top: domRect.top, left: domRect.left, width: domRect.width, height: domRect.height }
+  }
+}
 
-    let storedXPosition: number
-    let storedYPosition: number
+const parallaxIt = (el: HTMLImageElement, movement: number) => {
+  const rect = el.getBoundingClientRect()
+  gsap.to(el,
+    {
+      duration: 0.5,
+      x: (mouse.value.x - rect.width / 2) / rect.width * movement,
+      y: (mouse.value.y - rect.height / 2) / rect.height * movement
+    })
+}
 
-    // Set up our coordinate mapping with GSAP utils!
-    let mapWidth: (arg0: any) => number
-    let mapHeight: (value: number) => number
 
-    const setMaps = () => {
-      mapWidth = gsap.utils.mapRange(0, innerWidth, -50, 50)
-      mapHeight = gsap.utils.mapRange(0, innerHeight, -50, 50)
-    }
+const frameHandler = () => {
+  if (mouse.value.moved) {
+    images.value.forEach((image, index) => {
+      parallaxIt(image, movements[index])
+    })
+  }
+  // Reset the moved property of the mouse value for the next event.
+  mouse.value.moved = false
+}
 
-    window.addEventListener('resize', setMaps)
-    setMaps()
 
-    const movePointer = (xPosition: number, yPosition: number) => {
-      if (storedXPosition === xPosition && storedYPosition === yPosition) return
-      // Now apply the new position to all pointers
-      pointers.forEach((pointer: any) => {
-        const xSet = gsap.quickSetter(pointer, 'x', '%')
-        const ySet = gsap.quickSetter(pointer, 'y', '%')
-        xSet(xPosition)
-        ySet(yPosition)
-      })
-      storedXPosition = xPosition
-      storedYPosition = yPosition
-    }
-
-    gsap.ticker.add(() => movePointer(mapWidth(storedXPosition), mapHeight(storedYPosition)))
-    const updateMouseCoords = (event: { clientX: number; clientY: number; }) => {
-      storedXPosition = event.clientX
-      storedYPosition = event.clientY
-    }
-
-    window.addEventListener('mousemove', updateMouseCoords)
+const setImagesPosition = () => {
+  images.value.forEach((pointer, i) => {
+    const pos = positions[i % positions.length] // it will loop through positions if there are more images
+    pointer.style.transform = `translate(${pos.x}%, ${pos.y}%)`
   })
+}
+
+
+onBeforeMount(() => {
+  // Create an array of targets (pointers). The targets are string identifiers like ".pointer1", ".pointer2", etc.
+  const targets = Array.from({ length: 5 }, (_, i) => `.pointer${i + 1}`)
+  images.value = targets.map(target => (document.querySelector(target) as HTMLImageElement))
+
+  setImagesPosition()
 })
 
-onMounted(() => ctx.value.revert())
+onMounted(() => {
+  gsap.ticker.add(frameHandler)
+  window.addEventListener('resize', updateRect)
+  window.addEventListener('scroll', updateRect)
+  updateRect()
+})
+
+onBeforeUnmount(() => {
+  gsap.ticker.remove(frameHandler)
+  window.removeEventListener('resize', updateRect)
+  window.removeEventListener('scroll', updateRect)
+})
 </script>
 
 <template>
-  <div>
-    <img src="/pizza.png" alt="pointer" class="pointer w-[163px]" />
-    <img src="/salad.png" alt="pointer" class="pointer w-[163px]" />
-    <img src="/cake.png" alt="pointer" class="pointer w-[255px]" />
-    <img src="/bread.png" alt="pointer" class="pointer w-[255px]" />
-    <img src="/burger.png" alt="pointer" class="pointer w-[438px]" />
+  <div ref="container" class="w-full" @mousemove="onMousemove">
+    <img src="/pizza.png" alt="pointer" class="pointer1 w-[163px]" />
+    <img src="/salad.png" alt="pointer" class="pointer2 w-[163px]" />
+    <img src="/cake.png" alt="pointer" class="pointer3 w-[255px]" />
+    <img src="/bread.png" alt="pointer" class="pointer4 w-[255px]" />
+    <img src="/burger.png" alt="pointer" class="pointer5 w-[438px]" />
   </div>
 </template>
 
 <style>
-:root {
-  --mouse-x: 0;
-  --mouse-y: 0;
-}
 
 body {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-family: "Signika", sans-serif;
-  overflow: hidden;
-}
-
-.pointer {
-  position: relative;
-  text-align: center;
 }
 
 .pointer img {
   width: 100px;
   display: block;
   margin: 0 auto;
-}
-
-.screen-log {
-  position: absolute;
-  bottom: -3rem;
-  width: 300%;
-  left: -100%;
-  padding-top: 1rem;
-  text-align: center;
 }
 </style>
